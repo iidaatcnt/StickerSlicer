@@ -4,7 +4,11 @@ import os
 import io
 from .slicer import slice_to_zip
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='../public', static_url_path='')
+
+@app.route('/')
+def index():
+    return send_file('../public/index.html')
 
 @app.route('/api/health')
 def health():
