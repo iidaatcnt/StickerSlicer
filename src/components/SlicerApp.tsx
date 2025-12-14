@@ -51,8 +51,9 @@ export function SlicerApp() {
     };
 
     const handleDownload = () => {
-        if (zipBlob) {
-            saveAs(zipBlob, 'stickers.zip');
+        if (zipBlob && file) {
+            const name = file.name.replace(/\.[^/.]+$/, "");
+            saveAs(zipBlob, `${name}_stickers.zip`);
         }
     };
 
