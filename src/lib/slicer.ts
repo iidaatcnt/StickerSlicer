@@ -28,6 +28,7 @@ export async function processImage(
 
     let count = 1;
 
+
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
             // 2. Crop
@@ -35,7 +36,7 @@ export async function processImage(
             const sy = r * cellH;
 
             // 3. Resize & Process
-            const blob = await cropAndResize(img, sx, sy, cellW, cellH);
+            const blob = await cropAndResize(img, sx, sy, cellW, cellH, MAX_W, MAX_H);
 
             // 4. Metadata
             const name = `${String(count).padStart(2, '0')}.png`;
@@ -46,6 +47,15 @@ export async function processImage(
 
             count++;
         }
+    }
+
+    // Generate main.png (240x240) based on the first cell (01.png)
+    if (rows > 0 && cols > 0) {
+        const mainBlob = await cropAndResize(img, 0, 0, cellW, cellH, 240, 240);
+        zip.file('main.png', mainBlob);
+
+        const tabBlob = await cropAndResize(img, 0, 0, cellW, cellH, 96, 74);
+        zip.file('tab.png', tabBlob);
     }
 
     // 5. Generate Zip
@@ -68,18 +78,20 @@ function cropAndResize(
     sx: number,
     sy: number,
     sw: number,
-    sh: number
+    sh: number,
+    maxWidth: number,
+    maxHeight: number
 ): Promise<Blob> {
     return new Promise((resolve, reject) => {
         const canvas = document.createElement('canvas');
-        // We want to fit within MAX_W x MAX_H while maintaining aspect ratio
+        // We want to fit within maxWidth x maxHeight while maintaining aspect ratio
         // But first, let's get the aspect ratio of the crop
         const aspect = sw / sh;
 
-        let targetW = MAX_W;
-        let targetH = MAX_H;
+        let targetW = maxWidth;
+        let targetH = maxHeight;
 
-        // Calculate proper dimensions to fit inside MAX_W x MAX_H
+        // Calculate proper dimensions to fit inside maxWidth x maxHeight
         if (targetW / aspect > targetH) {
             // Height assumes priority
             targetW = targetH * aspect;
