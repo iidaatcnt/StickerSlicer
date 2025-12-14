@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 // import { useDropzone } from 'react-dropzone'; // Removed
-import { Upload, Download, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Upload, Download, Loader2, Image as ImageIcon, Wand2 } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { processImage, SliceResult } from '@/lib/slicer';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,7 @@ export function SlicerApp() {
     const [isProcessing, setIsProcessing] = useState(false);
     const [slices, setSlices] = useState<SliceResult[]>([]);
     const [zipBlob, setZipBlob] = useState<Blob | null>(null);
+    const [removeBg, setRemoveBg] = useState(false);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -23,6 +24,7 @@ export function SlicerApp() {
             setPreviewOriginal(URL.createObjectURL(selectedFile));
             setSlices([]);
             setZipBlob(null);
+            setRemoveBg(false);
         }
     };
 
@@ -37,7 +39,7 @@ export function SlicerApp() {
             const r = Number(rows) || 4;
             const c = Number(cols) || 4;
 
-            const result = await processImage(file, r, c);
+            const result = await processImage(file, r, c, removeBg);
             setSlices(result.slices);
             setZipBlob(result.zipBlob);
 
@@ -90,6 +92,30 @@ export function SlicerApp() {
                                 </span>
                             </div>
                         </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <label className="text-sm font-medium text-gray-300 flex items-center gap-2">
+                                <Wand2 className="w-4 h-4 text-purple-400" />
+                                AI Background Removal
+                            </label>
+                            <button
+                                onClick={() => setRemoveBg(!removeBg)}
+                                className={cn(
+                                    "w-12 h-6 rounded-full transition-colors relative",
+                                    removeBg ? "bg-purple-600" : "bg-zinc-700"
+                                )}
+                            >
+                                <span className={cn(
+                                    "absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform",
+                                    removeBg ? "translate-x-6" : "translate-x-0"
+                                )} />
+                            </button>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                            * Downloads ~20MB model on first use.
+                        </p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4 relative z-20">

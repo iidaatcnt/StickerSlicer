@@ -1,4 +1,5 @@
 import JSZip from 'jszip';
+import { removeBackground } from '@imgly/background-removal';
 
 export interface SliceResult {
     id: number;
@@ -13,10 +14,18 @@ const MAX_H = 320;
 export async function processImage(
     file: File,
     rows: number,
-    cols: number
+    cols: number,
+    removeBg: boolean = false
 ): Promise<{ slices: SliceResult[]; zipBlob: Blob }> {
+    let sourceImage: Blob | File = file;
+
+    // 0. Remove Background (Optional)
+    if (removeBg) {
+        sourceImage = await removeBackground(file);
+    }
+
     // 1. Load Image
-    const img = await loadImage(file);
+    const img = await loadImage(sourceImage);
     const imgW = img.naturalWidth;
     const imgH = img.naturalHeight;
 
@@ -65,7 +74,7 @@ export async function processImage(
     return { slices, zipBlob };
 }
 
-function loadImage(file: File): Promise<HTMLImageElement> {
+function loadImage(file: Blob | File): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => resolve(img);
