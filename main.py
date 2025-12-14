@@ -1,7 +1,7 @@
 import argparse
 import os
 import sys
-from slicer import slice_grid
+from api.slicer import slice_grid
 
 def main():
     parser = argparse.ArgumentParser(description="StickerSlicer: Slice a grid of images into LINE stickers.")

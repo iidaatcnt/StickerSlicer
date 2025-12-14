@@ -2,15 +2,7 @@ from flask import Flask, request, send_file
 import sys
 import os
 import io
-
-# Add project root to path to import slicer
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-try:
-    from slicer import slice_to_zip
-except ImportError:
-    # Fallback for some environments or if run from root
-    from slicer import slice_to_zip
+from .slicer import slice_to_zip
 
 app = Flask(__name__, static_folder='../public', static_url_path='')
 
