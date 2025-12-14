@@ -10,8 +10,8 @@ import { cn } from '@/lib/utils';
 export function SlicerApp() {
     const [file, setFile] = useState<File | null>(null);
     const [previewOriginal, setPreviewOriginal] = useState<string | null>(null);
-    const [rows, setRows] = useState(4);
-    const [cols, setCols] = useState(4);
+    const [rows, setRows] = useState<number | ''>(4);
+    const [cols, setCols] = useState<number | ''>(4);
     const [isProcessing, setIsProcessing] = useState(false);
     const [slices, setSlices] = useState<SliceResult[]>([]);
     const [zipBlob, setZipBlob] = useState<Blob | null>(null);
@@ -34,7 +34,10 @@ export function SlicerApp() {
             // Small timeout to let UI update
             await new Promise(r => setTimeout(r, 100));
 
-            const result = await processImage(file, rows, cols);
+            const r = Number(rows) || 4;
+            const c = Number(cols) || 4;
+
+            const result = await processImage(file, r, c);
             setSlices(result.slices);
             setZipBlob(result.zipBlob);
 
@@ -67,12 +70,12 @@ export function SlicerApp() {
 
             <div className="grid md:grid-cols-2 gap-8">
                 {/* Controls */}
-                <div className="space-y-6 bg-zinc-900 p-6 rounded-2xl border border-zinc-800">
+                <div className="space-y-6 bg-zinc-900 p-6 rounded-2xl border border-zinc-800 relative z-20">
                     <div className="space-y-4">
                         <label className="block text-sm font-medium text-gray-300">
                             1. Upload Image
                         </label>
-                        <div className="relative group">
+                        <div className="relative group isolate">
                             <input
                                 type="file"
                                 accept="image/*"
@@ -88,7 +91,7 @@ export function SlicerApp() {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4 relative z-20">
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-gray-300">Rows</label>
                             <input
@@ -96,8 +99,11 @@ export function SlicerApp() {
                                 min="1"
                                 max="10"
                                 value={rows}
-                                onChange={e => setRows(Number(e.target.value))}
-                                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                                onChange={e => {
+                                    const val = e.target.value;
+                                    setRows(val === '' ? '' : Number(val));
+                                }}
+                                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 relative z-30"
                             />
                         </div>
                         <div className="space-y-2">
@@ -107,8 +113,11 @@ export function SlicerApp() {
                                 min="1"
                                 max="10"
                                 value={cols}
-                                onChange={e => setCols(Number(e.target.value))}
-                                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                                onChange={e => {
+                                    const val = e.target.value;
+                                    setCols(val === '' ? '' : Number(val));
+                                }}
+                                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 relative z-30"
                             />
                         </div>
                     </div>
@@ -117,7 +126,7 @@ export function SlicerApp() {
                         onClick={handleSlice}
                         disabled={!file || isProcessing}
                         className={cn(
-                            "w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all",
+                            "w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all relative z-20",
                             !file
                                 ? "bg-zinc-800 text-zinc-600 cursor-not-allowed"
                                 : "bg-green-600 hover:bg-green-500 text-white shadow-lg shadow-green-900/20 active:scale-95"
@@ -137,7 +146,7 @@ export function SlicerApp() {
                     {zipBlob && (
                         <button
                             onClick={handleDownload}
-                            className="w-full py-3 bg-white text-zinc-900 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-100 transition-all shadow-lg"
+                            className="w-full py-3 bg-white text-zinc-900 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-100 transition-all shadow-lg relative z-20"
                         >
                             <Download className="w-5 h-5" /> Download ZIP
                         </button>
