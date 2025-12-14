@@ -36,7 +36,7 @@ export async function processImage(
             const sy = r * cellH;
 
             // 3. Resize & Process
-            const blob = await cropAndResize(img, sx, sy, cellW, cellH, MAX_W, MAX_H);
+            const blob = await cropAndResize(img, sx, sy, cellW, cellH, MAX_W, MAX_H, 'fit');
 
             // 4. Metadata
             const name = `${String(count).padStart(2, '0')}.png`;
@@ -51,10 +51,11 @@ export async function processImage(
 
     // Generate main.png (240x240) based on the first cell (01.png)
     if (rows > 0 && cols > 0) {
-        const mainBlob = await cropAndResize(img, 0, 0, cellW, cellH, 240, 240);
+        // Main and Tab images must be exact size with padding
+        const mainBlob = await cropAndResize(img, 0, 0, cellW, cellH, 240, 240, 'pad');
         zip.file('main.png', mainBlob);
 
-        const tabBlob = await cropAndResize(img, 0, 0, cellW, cellH, 96, 74);
+        const tabBlob = await cropAndResize(img, 0, 0, cellW, cellH, 96, 74, 'pad');
         zip.file('tab.png', tabBlob);
     }
 
@@ -80,7 +81,8 @@ function cropAndResize(
     sw: number,
     sh: number,
     maxWidth: number,
-    maxHeight: number
+    maxHeight: number,
+    mode: 'fit' | 'pad' = 'fit'
 ): Promise<Blob> {
     return new Promise((resolve, reject) => {
         const canvas = document.createElement('canvas');
@@ -101,8 +103,13 @@ function cropAndResize(
         }
 
         // Set canvas size (this determines output size)
-        canvas.width = targetW;
-        canvas.height = targetH;
+        if (mode === 'pad') {
+            canvas.width = maxWidth;
+            canvas.height = maxHeight;
+        } else {
+            canvas.width = targetW;
+            canvas.height = targetH;
+        }
 
         const ctx = canvas.getContext('2d');
         if (!ctx) {
@@ -114,8 +121,17 @@ function cropAndResize(
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
 
+        // Calculate position to center the image
+        let dx = 0;
+        let dy = 0;
+
+        if (mode === 'pad') {
+            dx = (maxWidth - targetW) / 2;
+            dy = (maxHeight - targetH) / 2;
+        }
+
         // Draw cropped portion to resized canvas
-        ctx.drawImage(source, sx, sy, sw, sh, 0, 0, targetW, targetH);
+        ctx.drawImage(source, sx, sy, sw, sh, dx, dy, targetW, targetH);
 
         canvas.toBlob(
             (blob) => {
