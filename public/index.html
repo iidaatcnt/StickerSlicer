@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sticker Slicer</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Sticker Slicer</h1>
+            <p>Slice your images into LINE-ready sticker grids.</p>
+        </header>
+
+        <main>
+            <form id="sliceForm" action="/api/slice" method="POST" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="image">Choose Image</label>
+                    <input type="file" id="image" name="image" accept="image/*" required>
+                    <div id="preview-area" class="preview-area">
+                        <p>No image selected</p>
+                    </div>
+                </div>
+
+                <div class="options-row">
+                    <div class="form-group">
+                        <label for="rows">Rows</label>
+                        <input type="number" id="rows" name="rows" value="4" min="1" max="10">
+                    </div>
+                    <div class="form-group">
+                        <label for="cols">Columns</label>
+                        <input type="number" id="cols" name="cols" value="4" min="1" max="10">
+                    </div>
+                </div>
+
+                <button type="submit" id="sliceBtn">Slice & Download ZIP</button>
+            </form>
+        </main>
+        
+        <footer>
+            <p>Powered by Python & Flask on Vercel</p>
+        </footer>
+    </div>
+
+    <script>
+        const imageInput = document.getElementById('image');
+        const previewArea = document.getElementById('preview-area');
+
+        imageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    previewArea.innerHTML = `<img src="${e.target.result}" alt="Preview" style="max-width: 100%; max-height: 200px; border-radius: 8px;">`;
+                }
+                reader.readAsDataURL(file);
+            } else {
+                previewArea.innerHTML = '<p>No image selected</p>';
+            }
+        });
+    </script>
+</body>
+</html>
