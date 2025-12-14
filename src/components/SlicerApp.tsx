@@ -103,7 +103,7 @@ export function SlicerApp() {
                                     const val = e.target.value;
                                     setRows(val === '' ? '' : Number(val));
                                 }}
-                                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 relative z-30"
+                                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 relative z-30 text-white"
                             />
                         </div>
                         <div className="space-y-2">
