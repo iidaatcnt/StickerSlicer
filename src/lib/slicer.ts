@@ -63,10 +63,11 @@ export async function processImage(
     // Generate main.png (240x240) based on the first cell (01.png)
     if (rows > 0 && cols > 0) {
         // Main and Tab images must be exact size with padding
-        const mainBlob = await cropAndResize(img, 0, 0, cellW, cellH, 240, 240, 'pad');
+        // Uses the first cell's position (including offsets)
+        const mainBlob = await cropAndResize(img, offsetX, offsetY, cellW, cellH, 240, 240, 'pad');
         zip.file('main.png', mainBlob);
 
-        const tabBlob = await cropAndResize(img, 0, 0, cellW, cellH, 96, 74, 'pad');
+        const tabBlob = await cropAndResize(img, offsetX, offsetY, cellW, cellH, 96, 74, 'pad');
         zip.file('tab.png', tabBlob);
     }
 
