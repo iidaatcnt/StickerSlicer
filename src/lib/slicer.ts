@@ -15,7 +15,9 @@ export async function processImage(
     file: File,
     rows: number,
     cols: number,
-    removeBg: boolean = false
+    removeBg: boolean = false,
+    offsetX: number = 0,
+    offsetY: number = 0
 ): Promise<{ slices: SliceResult[]; zipBlob: Blob }> {
     let sourceImage: Blob | File = file;
 
@@ -41,8 +43,8 @@ export async function processImage(
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
             // 2. Crop
-            const sx = c * cellW;
-            const sy = r * cellH;
+            const sx = c * cellW + offsetX;
+            const sy = r * cellH + offsetY;
 
             // 3. Resize & Process
             const blob = await cropAndResize(img, sx, sy, cellW, cellH, MAX_W, MAX_H, 'fit');

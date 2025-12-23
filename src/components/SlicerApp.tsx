@@ -16,6 +16,8 @@ export function SlicerApp() {
     const [slices, setSlices] = useState<SliceResult[]>([]);
     const [zipBlob, setZipBlob] = useState<Blob | null>(null);
     const [removeBg, setRemoveBg] = useState(false);
+    const [offsetX, setOffsetX] = useState(0);
+    const [offsetY, setOffsetY] = useState(0);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -39,7 +41,7 @@ export function SlicerApp() {
             const r = Number(rows) || 4;
             const c = Number(cols) || 4;
 
-            const result = await processImage(file, r, c, removeBg);
+            const result = await processImage(file, r, c, removeBg, offsetX, offsetY);
             setSlices(result.slices);
             setZipBlob(result.zipBlob);
 
@@ -143,6 +145,33 @@ export function SlicerApp() {
                                 onChange={e => {
                                     const val = e.target.value;
                                     setCols(val === '' ? '' : Number(val));
+                                }}
+                                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 relative z-30 text-white"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 relative z-20">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-300">Offset X (px)</label>
+                            <input
+                                type="number"
+                                value={offsetX}
+                                onChange={e => {
+                                    const val = e.target.value;
+                                    setOffsetX(val === '' ? 0 : Number(val));
+                                }}
+                                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 relative z-30 text-white"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-300">Offset Y (px)</label>
+                            <input
+                                type="number"
+                                value={offsetY}
+                                onChange={e => {
+                                    const val = e.target.value;
+                                    setOffsetY(val === '' ? 0 : Number(val));
                                 }}
                                 className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 relative z-30 text-white"
                             />
