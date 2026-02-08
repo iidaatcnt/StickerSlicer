@@ -6,8 +6,8 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-    title: 'Sticker Slicer',
-    description: 'Create LINE stickers in seconds.',
+    title: 'スタンプスライサー',
+    description: 'LINEスタンプを数秒で作成。',
 };
 
 export default function RootLayout({
@@ -16,7 +16,7 @@ export default function RootLayout({
     children: React.ReactNode;
 }) {
     return (
-        <html lang="en" className="dark">
+        <html lang="ja" className="dark">
             <body className={`${inter.className} bg-zinc-950 text-zinc-100 min-h-screen`}>{children}</body>
         </html>
     );

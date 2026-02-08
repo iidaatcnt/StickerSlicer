@@ -48,7 +48,7 @@ export function SlicerApp() {
             // Auto download? Maybe optional. user can click button.
         } catch (error) {
             console.error(error);
-            alert('Error processing image');
+            alert('画像の処理中にエラーが発生しました');
         } finally {
             setIsProcessing(false);
         }
@@ -66,10 +66,10 @@ export function SlicerApp() {
             {/* Header */}
             <div className="text-center space-y-2">
                 <h1 className="text-4xl font-bold bg-gradient-to-r from-green-500 to-emerald-700 bg-clip-text text-transparent">
-                    Sticker Slicer
+                    スタンプスライサー
                 </h1>
                 <p className="text-gray-400">
-                    Private, fast, and client-side LINE sticker generation.
+                    プライベート、高速、クライアントサイドでLINEスタンプ生成。
                 </p>
             </div>
 
@@ -78,7 +78,7 @@ export function SlicerApp() {
                 <div className="space-y-6 bg-zinc-900 p-6 rounded-2xl border border-zinc-800 relative z-20">
                     <div className="space-y-4">
                         <label className="block text-sm font-medium text-gray-300">
-                            1. Upload Image
+                            1. 画像をアップロード
                         </label>
                         <div className="relative group isolate">
                             <input
@@ -90,7 +90,7 @@ export function SlicerApp() {
                             <div className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-zinc-700 rounded-xl bg-zinc-900/50 group-hover:border-green-500/50 transition-colors">
                                 <Upload className="w-8 h-8 text-gray-500 mb-2 group-hover:text-green-500" />
                                 <span className="text-sm text-gray-500 group-hover:text-gray-300">
-                                    {file ? file.name : "Click or Drag image here"}
+                                    {file ? file.name : "クリックまたは画像をここにドラッグ"}
                                 </span>
                             </div>
                         </div>
@@ -100,7 +100,7 @@ export function SlicerApp() {
                         <div className="flex items-center justify-between">
                             <label className="text-sm font-medium text-gray-300 flex items-center gap-2">
                                 <Wand2 className="w-4 h-4 text-purple-400" />
-                                AI Background Removal
+                                AI背景削除
                             </label>
                             <button
                                 onClick={() => setRemoveBg(!removeBg)}
@@ -116,13 +116,13 @@ export function SlicerApp() {
                             </button>
                         </div>
                         <p className="text-xs text-gray-500">
-                            * Downloads ~20MB model on first use.
+                            * 初回利用時に約20MBのモデルをダウンロードします。
                         </p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4 relative z-20">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-300">Rows</label>
+                            <label className="text-sm font-medium text-gray-300">行数</label>
                             <input
                                 type="number"
                                 min="1"
@@ -136,7 +136,7 @@ export function SlicerApp() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-300">Cols</label>
+                            <label className="text-sm font-medium text-gray-300">列数</label>
                             <input
                                 type="number"
                                 min="1"
@@ -153,7 +153,7 @@ export function SlicerApp() {
 
                     <div className="grid grid-cols-2 gap-4 relative z-20">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-300">Offset X (px)</label>
+                            <label className="text-sm font-medium text-gray-300">Xオフセット (px)</label>
                             <input
                                 type="number"
                                 value={offsetX}
@@ -165,7 +165,7 @@ export function SlicerApp() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-300">Offset Y (px)</label>
+                            <label className="text-sm font-medium text-gray-300">Yオフセット (px)</label>
                             <input
                                 type="number"
                                 value={offsetY}
@@ -190,11 +190,11 @@ export function SlicerApp() {
                     >
                         {isProcessing ? (
                             <>
-                                <Loader2 className="animate-spin" /> Processing...
+                                <Loader2 className="animate-spin" /> 処理中...
                             </>
                         ) : (
                             <>
-                                <ImageIcon className="w-5 h-5" /> Slice Image
+                                <ImageIcon className="w-5 h-5" /> 画像を分割
                             </>
                         )}
                     </button>
@@ -204,7 +204,7 @@ export function SlicerApp() {
                             onClick={handleDownload}
                             className="w-full py-3 bg-white text-zinc-900 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-100 transition-all shadow-lg relative z-20"
                         >
-                            <Download className="w-5 h-5" /> Download ZIP
+                            <Download className="w-5 h-5" /> ZIPをダウンロード
                         </button>
                     )}
                 </div>
@@ -212,7 +212,7 @@ export function SlicerApp() {
                 {/* Preview */}
                 <div className="bg-zinc-900 p-6 rounded-2xl border border-zinc-800 min-h-[400px] flex flex-col">
                     <label className="block text-sm font-medium text-gray-300 mb-4">
-                        Preview
+                        プレビュー
                     </label>
 
                     <div className="flex-1 flex items-center justify-center bg-zinc-950/50 rounded-xl p-4 overflow-hidden">
@@ -244,19 +244,19 @@ export function SlicerApp() {
                                     className="max-w-full max-h-[300px] object-contain opacity-50"
                                 />
                                 <div className="absolute inset-0 flex items-center justify-center text-zinc-500 font-medium">
-                                    Preview will appear here
+                                    ここにプレビューが表示されます
                                 </div>
                             </div>
                         ) : (
                             <div className="text-zinc-700 flex flex-col items-center">
                                 <ImageIcon className="w-12 h-12 mb-2 opacity-20" />
-                                <span>No image selected</span>
+                                <span>画像が選択されていません</span>
                             </div>
                         )}
                     </div>
                     {slices.length > 0 && (
                         <div className="mt-4 text-center text-xs text-gray-500">
-                            Generated {slices.length} stickers ({rows} x {cols})
+                            {slices.length} 枚のスタンプを生成しました ({rows} x {cols})
                         </div>
                     )}
                 </div>
