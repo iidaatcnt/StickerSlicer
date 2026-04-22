@@ -16,6 +16,7 @@ export function SlicerApp() {
     const [zipBlob, setZipBlob] = useState<Blob | null>(null);
     const [removeBg, setRemoveBg] = useState(false);
     const [padding, setPadding] = useState<Padding>({ top: 0, bottom: 0, left: 0, right: 0 });
+    const [bgColor, setBgColor] = useState<string>('transparent');
 
     const imgRef = useRef<HTMLImageElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -261,11 +262,36 @@ export function SlicerApp() {
 
                 {/* Preview */}
                 <div className="bg-zinc-900 p-6 rounded-2xl border border-zinc-800 min-h-[400px] flex flex-col">
-                    <label className="block text-sm font-medium text-gray-300 mb-4">
-                        {slices.length > 0 ? `プレビュー（${slices.length}枚）` : 'グリッドプレビュー'}
-                    </label>
+                    <div className="flex items-center justify-between mb-4">
+                        <label className="text-sm font-medium text-gray-300">
+                            {slices.length > 0 ? `プレビュー（${slices.length}枚）` : 'グリッドプレビュー'}
+                        </label>
+                        {/* 背景色セレクター */}
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-gray-500">背景</span>
+                            {[
+                                { value: 'transparent', label: '透過', style: 'bg-[url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'8\' height=\'8\'%3E%3Crect width=\'4\' height=\'4\' fill=\'%23ccc\'/%3E%3Crect x=\'4\' y=\'4\' width=\'4\' height=\'4\' fill=\'%23ccc\'/%3E%3Crect x=\'4\' width=\'4\' height=\'4\' fill=\'%23fff\'/%3E%3Crect y=\'4\' width=\'4\' height=\'4\' fill=\'%23fff\'/%3E%3C/svg%3E")]' },
+                                { value: '#ffffff', label: '白', style: 'bg-white' },
+                                { value: '#888888', label: '灰', style: 'bg-gray-500' },
+                                { value: '#000000', label: '黒', style: 'bg-black' },
+                            ].map(opt => (
+                                <button
+                                    key={opt.value}
+                                    title={opt.label}
+                                    onClick={() => setBgColor(opt.value)}
+                                    className={cn(
+                                        'w-6 h-6 rounded border-2 transition-all',
+                                        opt.style,
+                                        bgColor === opt.value ? 'border-green-400 scale-110' : 'border-zinc-600'
+                                    )}
+                                />
+                            ))}
+                        </div>
+                    </div>
 
-                    <div className="flex-1 flex items-center justify-center bg-zinc-950/50 rounded-xl p-4 overflow-hidden">
+                    <div className="flex-1 flex items-center justify-center rounded-xl p-4 overflow-hidden"
+                        style={{ background: bgColor === 'transparent' ? 'repeating-conic-gradient(#3f3f46 0% 25%, #27272a 0% 50%) 0 0 / 16px 16px' : bgColor }}
+                    >
                         {slices.length > 0 ? (
                             <div className="grid gap-1 w-full" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
                                 {slices.map((slice) => (
