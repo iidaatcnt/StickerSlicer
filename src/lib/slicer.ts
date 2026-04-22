@@ -8,6 +8,13 @@ export interface SliceResult {
     name: string;
 }
 
+export interface Padding {
+    top: number;
+    bottom: number;
+    left: number;
+    right: number;
+}
+
 const MAX_W = 370;
 const MAX_H = 320;
 
@@ -16,64 +23,53 @@ export async function processImage(
     rows: number,
     cols: number,
     removeBg: boolean = false,
-    offsetX: number = 0,
-    offsetY: number = 0
+    padding: Padding = { top: 0, bottom: 0, left: 0, right: 0 }
 ): Promise<{ slices: SliceResult[]; zipBlob: Blob }> {
     let sourceImage: Blob | File = file;
 
-    // 0. Remove Background (Optional)
     if (removeBg) {
         sourceImage = await removeBackground(file);
     }
 
-    // 1. Load Image
     const img = await loadImage(sourceImage);
     const imgW = img.naturalWidth;
     const imgH = img.naturalHeight;
 
-    const cellW = imgW / cols;
-    const cellH = imgH / rows;
+    // 余白を除いたアクティブエリアでセルサイズを計算
+    const activeW = imgW - padding.left - padding.right;
+    const activeH = imgH - padding.top  - padding.bottom;
+    const cellW = activeW / cols;
+    const cellH = activeH / rows;
 
     const zip = new JSZip();
     const slices: SliceResult[] = [];
-
     let count = 1;
-
 
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
-            // 2. Crop
-            const sx = c * cellW + offsetX;
-            const sy = r * cellH + offsetY;
+            const sx = padding.left + c * cellW;
+            const sy = padding.top  + r * cellH;
 
-            // 3. Resize & Process
             const blob = await cropAndResize(img, sx, sy, cellW, cellH, MAX_W, MAX_H, 'fit');
-
-            // 4. Metadata
             const name = `${String(count).padStart(2, '0')}.png`;
             const url = URL.createObjectURL(blob);
 
             slices.push({ id: count, blob, url, name });
             zip.file(name, blob);
-
             count++;
         }
     }
 
-    // Generate main.png (240x240) based on the first cell (01.png)
+    // main.png (240x240) と tab.png (96x74) は1枚目のセルから生成
     if (rows > 0 && cols > 0) {
-        // Main and Tab images must be exact size with padding
-        // Uses the first cell's position (including offsets)
-        const mainBlob = await cropAndResize(img, offsetX, offsetY, cellW, cellH, 240, 240, 'pad');
+        const mainBlob = await cropAndResize(img, padding.left, padding.top, cellW, cellH, 240, 240, 'pad');
         zip.file('main.png', mainBlob);
 
-        const tabBlob = await cropAndResize(img, offsetX, offsetY, cellW, cellH, 96, 74, 'pad');
+        const tabBlob = await cropAndResize(img, padding.left, padding.top, cellW, cellH, 96, 74, 'pad');
         zip.file('tab.png', tabBlob);
     }
 
-    // 5. Generate Zip
     const zipBlob = await zip.generateAsync({ type: 'blob' });
-
     return { slices, zipBlob };
 }
 
@@ -98,23 +94,17 @@ function cropAndResize(
 ): Promise<Blob> {
     return new Promise((resolve, reject) => {
         const canvas = document.createElement('canvas');
-        // We want to fit within maxWidth x maxHeight while maintaining aspect ratio
-        // But first, let's get the aspect ratio of the crop
         const aspect = sw / sh;
 
         let targetW = maxWidth;
         let targetH = maxHeight;
 
-        // Calculate proper dimensions to fit inside maxWidth x maxHeight
         if (targetW / aspect > targetH) {
-            // Height assumes priority
             targetW = targetH * aspect;
         } else {
-            // Width assumes priority
             targetH = targetW / aspect;
         }
 
-        // Set canvas size (this determines output size)
         if (mode === 'pad') {
             canvas.width = maxWidth;
             canvas.height = maxHeight;
@@ -129,11 +119,9 @@ function cropAndResize(
             return;
         }
 
-        // High quality scaling
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
 
-        // Calculate position to center the image
         let dx = 0;
         let dy = 0;
 
@@ -142,7 +130,6 @@ function cropAndResize(
             dy = (maxHeight - targetH) / 2;
         }
 
-        // Draw cropped portion to resized canvas
         ctx.drawImage(source, sx, sy, sw, sh, dx, dy, targetW, targetH);
 
         canvas.toBlob(
