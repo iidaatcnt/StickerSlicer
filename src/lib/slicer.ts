@@ -175,7 +175,12 @@ export async function processImageAuto(
     tmpCtx.drawImage(img, 0, 0);
     const imageData = tmpCtx.getImageData(0, 0, img.naturalWidth, img.naturalHeight);
 
-    const cells = detectCells(imageData, bgThreshold, gapThreshold);
+    const rawCells = detectCells(imageData, bgThreshold, gapThreshold);
+
+    // 中央値ベースの小領域フィルター：中央値の20%未満のセルを除外
+    const areas = rawCells.map(c => c.cw * c.ch).sort((a, b) => a - b);
+    const median = areas.length > 0 ? areas[Math.floor(areas.length / 2)] : 0;
+    const cells = rawCells.filter(c => c.cw * c.ch >= median * 0.2);
 
     const zip = new JSZip();
     const slices: SliceResult[] = [];
