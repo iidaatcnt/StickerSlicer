@@ -18,27 +18,15 @@ export function SlicerApp() {
     const [padding, setPadding] = useState<Padding>({ top: 0, bottom: 0, left: 0, right: 0 });
     const [bgColor, setBgColor] = useState<string>('transparent');
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+    const [gridZoom, setGridZoom] = useState(false);
 
     const imgRef = useRef<HTMLImageElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const zoomImgRef = useRef<HTMLImageElement>(null);
+    const zoomCanvasRef = useRef<HTMLCanvasElement>(null);
 
-    // キーボード操作（ライトボックス）
-    useEffect(() => {
-        if (lightboxIndex === null) return;
-        const onKey = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') setLightboxIndex(null);
-            if (e.key === 'ArrowRight') setLightboxIndex(i => i !== null ? Math.min(i + 1, slices.length - 1) : null);
-            if (e.key === 'ArrowLeft')  setLightboxIndex(i => i !== null ? Math.max(i - 1, 0) : null);
-        };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [lightboxIndex, slices.length]);
-
-    const drawGrid = useCallback(() => {
-        const canvas = canvasRef.current;
-        const img = imgRef.current;
-        if (!canvas || !img || !previewOriginal) return;
-
+    // グリッド描画（任意のcanvas/imgに対して実行できる汎用関数）
+    const paintGrid = useCallback((canvas: HTMLCanvasElement, img: HTMLImageElement) => {
         const dispW = img.clientWidth;
         const dispH = img.clientHeight;
         if (dispW === 0 || dispH === 0) return;
@@ -52,17 +40,13 @@ export function SlicerApp() {
 
         const r = Number(rows) || 1;
         const c = Number(cols) || 1;
-        const natW = img.naturalWidth;
-        const natH = img.naturalHeight;
-
-        const scaleX = dispW / natW;
-        const scaleY = dispH / natH;
+        const scaleX = dispW / img.naturalWidth;
+        const scaleY = dispH / img.naturalHeight;
 
         const padL = padding.left   * scaleX;
         const padR = padding.right  * scaleX;
         const padT = padding.top    * scaleY;
         const padB = padding.bottom * scaleY;
-
         const activeW = dispW - padL - padR;
         const activeH = dispH - padT - padB;
         const cellW = activeW / c;
@@ -75,7 +59,7 @@ export function SlicerApp() {
         if (padR > 0) ctx.fillRect(dispW - padR, padT, padR, activeH);
 
         ctx.strokeStyle = 'rgba(34, 197, 94, 0.85)';
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = Math.max(1, dispW / 600); // 拡大時は線を太く
 
         for (let i = 0; i <= c; i++) {
             const x = padL + i * cellW;
@@ -87,7 +71,7 @@ export function SlicerApp() {
         }
 
         ctx.fillStyle = 'rgba(34, 197, 94, 0.9)';
-        ctx.font = `${Math.max(10, Math.min(cellW, cellH) * 0.25)}px monospace`;
+        ctx.font = `${Math.max(10, Math.min(cellW, cellH) * 0.22)}px monospace`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         let num = 1;
@@ -97,9 +81,32 @@ export function SlicerApp() {
                 num++;
             }
         }
-    }, [rows, cols, padding, previewOriginal]);
+    }, [rows, cols, padding]);
+
+    const drawGrid = useCallback(() => {
+        if (canvasRef.current && imgRef.current && previewOriginal)
+            paintGrid(canvasRef.current, imgRef.current);
+    }, [paintGrid, previewOriginal]);
+
+    const drawZoomGrid = useCallback(() => {
+        if (zoomCanvasRef.current && zoomImgRef.current)
+            paintGrid(zoomCanvasRef.current, zoomImgRef.current);
+    }, [paintGrid]);
 
     useEffect(() => { drawGrid(); }, [drawGrid]);
+
+    // キーボード操作（ライトボックス・グリッドズーム共通）
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') { setLightboxIndex(null); setGridZoom(false); }
+            if (lightboxIndex !== null) {
+                if (e.key === 'ArrowRight') setLightboxIndex(i => i !== null ? Math.min(i + 1, slices.length - 1) : null);
+                if (e.key === 'ArrowLeft')  setLightboxIndex(i => i !== null ? Math.max(i - 1, 0) : null);
+            }
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [lightboxIndex, slices.length]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -241,6 +248,7 @@ export function SlicerApp() {
                         <label className="text-sm font-medium text-gray-300">
                             {slices.length > 0 ? `プレビュー（${slices.length}枚）` : 'グリッドプレビュー'}
                             {slices.length > 0 && <span className="ml-2 text-xs text-gray-500 font-normal">クリックで拡大</span>}
+                            {!slices.length && previewOriginal && <span className="ml-2 text-xs text-gray-500 font-normal">クリックで拡大確認</span>}
                         </label>
                         <div className="flex items-center gap-1.5">
                             <span className="text-xs text-gray-500">背景</span>
@@ -274,13 +282,20 @@ export function SlicerApp() {
                             </div>
                         ) : previewOriginal ? (
                             <div className="relative w-full h-full flex items-center justify-center">
-                                <div className="relative inline-block">
+                                <button
+                                    onClick={() => setGridZoom(true)}
+                                    className="relative inline-block cursor-zoom-in group focus:outline-none">
                                     <img ref={imgRef} src={previewOriginal} alt="Original"
                                         className="max-w-full max-h-[380px] object-contain block"
                                         onLoad={drawGrid} />
                                     <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none"
                                         style={{ width: '100%', height: '100%' }} />
-                                </div>
+                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-end justify-end p-2 pointer-events-none">
+                                        <span className="text-white/0 group-hover:text-white/90 text-xs bg-black/50 px-2 py-1 rounded transition-all">
+                                            🔍 クリックで拡大
+                                        </span>
+                                    </div>
+                                </button>
                             </div>
                         ) : (
                             <div className="text-zinc-700 flex flex-col items-center">
@@ -300,6 +315,29 @@ export function SlicerApp() {
                     )}
                 </div>
             </div>
+
+            {/* グリッド拡大モーダル */}
+            {gridZoom && previewOriginal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center"
+                    onClick={() => setGridZoom(false)}>
+                    <div className="absolute inset-0 bg-black/85 backdrop-blur-sm" />
+                    <div className="relative z-10 flex flex-col items-center gap-3 w-[92vw] max-w-4xl"
+                        onClick={e => e.stopPropagation()}>
+                        <div className="relative inline-block rounded-xl overflow-hidden shadow-2xl w-full">
+                            <img ref={zoomImgRef} src={previewOriginal} alt="Grid zoom"
+                                className="w-full h-auto block max-h-[82vh] object-contain"
+                                onLoad={drawZoomGrid} />
+                            <canvas ref={zoomCanvasRef} className="absolute inset-0 pointer-events-none"
+                                style={{ width: '100%', height: '100%' }} />
+                        </div>
+                        <span className="text-white/60 text-xs">クリック外・Escで閉じる</span>
+                    </div>
+                    <button onClick={() => setGridZoom(false)}
+                        className="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all">
+                        <X className="w-6 h-6 text-white" />
+                    </button>
+                </div>
+            )}
 
             {/* ライトボックス */}
             {lightboxIndex !== null && slices[lightboxIndex] && (
