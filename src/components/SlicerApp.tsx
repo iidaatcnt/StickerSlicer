@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Upload, Download, Loader2, Image as ImageIcon, Wand2, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Upload, Download, Loader2, Image as ImageIcon, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { processImage, processImageAuto, SliceResult, Padding } from '@/lib/slicer';
 import { cn } from '@/lib/utils';
@@ -14,7 +14,6 @@ export function SlicerApp() {
     const [isProcessing, setIsProcessing] = useState(false);
     const [slices, setSlices] = useState<SliceResult[]>([]);
     const [zipBlob, setZipBlob] = useState<Blob | null>(null);
-    const [removeBg, setRemoveBg] = useState(false);
     const [padding, setPadding] = useState<Padding>({ top: 0, bottom: 0, left: 0, right: 0 });
     const [bgColor, setBgColor] = useState<string>('transparent');
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -133,7 +132,7 @@ export function SlicerApp() {
             } else {
                 const r = Number(rows) || 5;
                 const c = Number(cols) || 6;
-                const result = await processImage(file, r, c, removeBg, padding);
+                const result = await processImage(file, r, c, padding);
                 setSlices(result.slices);
                 setZipBlob(result.zipBlob);
             }
@@ -262,17 +261,6 @@ export function SlicerApp() {
                             <p className="text-xs text-gray-500">赤＝余白エリア　緑＝切り出しライン</p>
                         </div>
 
-                        <div className="flex items-center justify-between py-1">
-                            <label className="text-sm font-medium text-gray-300 flex items-center gap-2">
-                                <Wand2 className="w-4 h-4 text-purple-400" />
-                                AI背景削除
-                                <span className="text-xs text-gray-500 font-normal">（初回約20MBダウンロード）</span>
-                            </label>
-                            <button onClick={() => setRemoveBg(!removeBg)}
-                                className={cn('w-12 h-6 rounded-full transition-colors relative', removeBg ? 'bg-purple-600' : 'bg-zinc-700')}>
-                                <span className={cn('absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform', removeBg ? 'translate-x-6' : 'translate-x-0')} />
-                            </button>
-                        </div>
                     </>}
 
                     <button onClick={handleSlice} disabled={!file || isProcessing}
