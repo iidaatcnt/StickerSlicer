@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Upload, Download, Loader2, Image as ImageIcon, Wand2, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { saveAs } from 'file-saver';
-import { processImage, SliceResult, Padding } from '@/lib/slicer';
+import { processImage, processImageAuto, SliceResult, Padding } from '@/lib/slicer';
 import { cn } from '@/lib/utils';
 
 export function SlicerApp() {
@@ -19,6 +19,8 @@ export function SlicerApp() {
     const [bgColor, setBgColor] = useState<string>('transparent');
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
     const [gridZoom, setGridZoom] = useState(false);
+    const [mode, setMode] = useState<'grid' | 'auto'>('grid');
+    const [bgThreshold, setBgThreshold] = useState(30);
 
     const imgRef = useRef<HTMLImageElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -124,11 +126,17 @@ export function SlicerApp() {
         setIsProcessing(true);
         try {
             await new Promise(r => setTimeout(r, 100));
-            const r = Number(rows) || 5;
-            const c = Number(cols) || 6;
-            const result = await processImage(file, r, c, removeBg, padding);
-            setSlices(result.slices);
-            setZipBlob(result.zipBlob);
+            if (mode === 'auto') {
+                const result = await processImageAuto(file, bgThreshold);
+                setSlices(result.slices);
+                setZipBlob(result.zipBlob);
+            } else {
+                const r = Number(rows) || 5;
+                const c = Number(cols) || 6;
+                const result = await processImage(file, r, c, removeBg, padding);
+                setSlices(result.slices);
+                setZipBlob(result.zipBlob);
+            }
         } catch (error) {
             console.error(error);
             alert('画像の処理中にエラーが発生しました');
@@ -178,54 +186,94 @@ export function SlicerApp() {
                         </div>
                     </div>
 
+                    {/* モード切替 */}
                     <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-300">2. グリッド設定</label>
-                        <div className="grid grid-cols-2 gap-3">
-                            {(['行数', '列数'] as const).map((label, i) => (
-                                <div key={label} className="space-y-1">
-                                    <label className="text-xs text-gray-400">{label}</label>
-                                    <input type="number" min="1" max="20"
-                                        value={i === 0 ? rows : cols}
-                                        onChange={e => i === 0
-                                            ? setRows(e.target.value === '' ? '' : Number(e.target.value))
-                                            : setCols(e.target.value === '' ? '' : Number(e.target.value))}
-                                        className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-white" />
-                                </div>
-                            ))}
+                        <label className="block text-sm font-medium text-gray-300">2. 分割モード</label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button onClick={() => setMode('grid')}
+                                className={cn('py-2 px-3 rounded-lg text-sm font-medium border transition-all',
+                                    mode === 'grid'
+                                        ? 'bg-green-600 border-green-500 text-white'
+                                        : 'bg-zinc-800 border-zinc-700 text-gray-400 hover:border-zinc-500')}>
+                                均等グリッド
+                            </button>
+                            <button onClick={() => setMode('auto')}
+                                className={cn('py-2 px-3 rounded-lg text-sm font-medium border transition-all',
+                                    mode === 'auto'
+                                        ? 'bg-green-600 border-green-500 text-white'
+                                        : 'bg-zinc-800 border-zinc-700 text-gray-400 hover:border-zinc-500')}>
+                                🔍 自動検出
+                            </button>
                         </div>
+                        {mode === 'auto' && (
+                            <div className="bg-zinc-800/60 rounded-lg p-3 space-y-2 border border-zinc-700">
+                                <p className="text-xs text-gray-400">
+                                    黒背景からスタンプ領域を自動検出して中央配置します。
+                                </p>
+                                <div className="flex items-center gap-3">
+                                    <label className="text-xs text-gray-400 whitespace-nowrap">背景しきい値</label>
+                                    <input type="range" min="10" max="80" value={bgThreshold}
+                                        onChange={e => setBgThreshold(Number(e.target.value))}
+                                        className="flex-1 accent-green-500" />
+                                    <span className="text-xs text-green-400 w-6 text-right">{bgThreshold}</span>
+                                </div>
+                                <p className="text-xs text-gray-500">
+                                    背景が薄い黒の場合は値を上げてください
+                                </p>
+                            </div>
+                        )}
                     </div>
 
-                    <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-300">
-                            3. 余白（px）
-                            <span className="ml-2 text-xs text-gray-500 font-normal">右プレビューを見ながら調整</span>
-                        </label>
-                        <div className="grid grid-cols-2 gap-3">
-                            {(['top', 'bottom', 'left', 'right'] as const).map(key => (
-                                <div key={key} className="space-y-1">
-                                    <label className="text-xs text-gray-400">
-                                        {{ top: '上', bottom: '下', left: '左', right: '右' }[key]}
-                                    </label>
-                                    <input type="number" min="0" value={padding[key]}
-                                        onChange={e => updatePadding(key, e.target.value)}
-                                        className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-white" />
-                                </div>
-                            ))}
+                    {mode === 'grid' && <>
+                        <div className="space-y-2">
+                            <label className="block text-sm font-medium text-gray-300">3. グリッド設定</label>
+                            <div className="grid grid-cols-2 gap-3">
+                                {(['行数', '列数'] as const).map((label, i) => (
+                                    <div key={label} className="space-y-1">
+                                        <label className="text-xs text-gray-400">{label}</label>
+                                        <input type="number" min="1" max="20"
+                                            value={i === 0 ? rows : cols}
+                                            onChange={e => i === 0
+                                                ? setRows(e.target.value === '' ? '' : Number(e.target.value))
+                                                : setCols(e.target.value === '' ? '' : Number(e.target.value))}
+                                            className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-white" />
+                                    </div>
+                                ))}
+                            </div>
                         </div>
-                        <p className="text-xs text-gray-500">赤＝余白エリア　緑＝切り出しライン</p>
-                    </div>
 
-                    <div className="flex items-center justify-between py-1">
-                        <label className="text-sm font-medium text-gray-300 flex items-center gap-2">
-                            <Wand2 className="w-4 h-4 text-purple-400" />
-                            AI背景削除
-                            <span className="text-xs text-gray-500 font-normal">（初回約20MBダウンロード）</span>
-                        </label>
-                        <button onClick={() => setRemoveBg(!removeBg)}
-                            className={cn('w-12 h-6 rounded-full transition-colors relative', removeBg ? 'bg-purple-600' : 'bg-zinc-700')}>
-                            <span className={cn('absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform', removeBg ? 'translate-x-6' : 'translate-x-0')} />
-                        </button>
-                    </div>
+                        <div className="space-y-2">
+                            <label className="block text-sm font-medium text-gray-300">
+                                4. 余白（px）
+                                <span className="ml-2 text-xs text-gray-500 font-normal">右プレビューを見ながら調整</span>
+                            </label>
+                            <div className="grid grid-cols-2 gap-3">
+                                {(['top', 'bottom', 'left', 'right'] as const).map(key => (
+                                    <div key={key} className="space-y-1">
+                                        <label className="text-xs text-gray-400">
+                                            {{ top: '上', bottom: '下', left: '左', right: '右' }[key]}
+                                        </label>
+                                        <input type="number" min="0" value={padding[key]}
+                                            onChange={e => updatePadding(key, e.target.value)}
+                                            className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-white" />
+                                    </div>
+                                ))}
+                            </div>
+                            <p className="text-xs text-gray-500">赤＝余白エリア　緑＝切り出しライン</p>
+                        </div>
+
+                        <div className="flex items-center justify-between py-1">
+                            <label className="text-sm font-medium text-gray-300 flex items-center gap-2">
+                                <Wand2 className="w-4 h-4 text-purple-400" />
+                                AI背景削除
+                                <span className="text-xs text-gray-500 font-normal">（初回約20MBダウンロード）</span>
+                            </label>
+                            <button onClick={() => setRemoveBg(!removeBg)}
+                                className={cn('w-12 h-6 rounded-full transition-colors relative', removeBg ? 'bg-purple-600' : 'bg-zinc-700')}>
+                                <span className={cn('absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform', removeBg ? 'translate-x-6' : 'translate-x-0')} />
+                            </button>
+                        </div>
+                    </>}
 
                     <button onClick={handleSlice} disabled={!file || isProcessing}
                         className={cn('w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all',

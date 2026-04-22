@@ -15,8 +15,190 @@ export interface Padding {
     right: number;
 }
 
+export interface DetectedCell {
+    x: number; y: number; w: number; h: number; // セル領域
+    cx: number; cy: number; cw: number; ch: number; // コンテンツ領域
+}
+
 const MAX_W = 370;
 const MAX_H = 320;
+
+// ────────────────────────────────────────────
+// 自動検出モード
+// ────────────────────────────────────────────
+
+/**
+ * 黒背景画像からスタンプ領域を自動検出する
+ * 1. 輝度プロファイルで行の区切りを検出
+ * 2. 各行帯で列の区切りを検出
+ * 3. 各セル内のコンテンツ輪郭ボックスを取得
+ */
+export function detectCells(
+    imageData: ImageData,
+    bgThreshold = 30,
+    gapThreshold = 0.01 // 行/列の「隙間」判定：非背景ピクセル比率がこれ以下なら隙間
+): DetectedCell[] {
+    const { data, width, height } = imageData;
+
+    const isBackground = (r: number, g: number, b: number) =>
+        r < bgThreshold && g < bgThreshold && b < bgThreshold;
+
+    // 各行の非背景ピクセル比率
+    const rowProfile: number[] = [];
+    for (let y = 0; y < height; y++) {
+        let count = 0;
+        for (let x = 0; x < width; x++) {
+            const i = (y * width + x) * 4;
+            if (!isBackground(data[i], data[i + 1], data[i + 2])) count++;
+        }
+        rowProfile.push(count / width);
+    }
+
+    // 行の区切りを検出（隙間 → スタンプ帯 のブロック分割）
+    const rowBands = splitProfile(rowProfile, gapThreshold);
+    if (rowBands.length === 0) return [];
+
+    const cells: DetectedCell[] = [];
+
+    for (const [rowStart, rowEnd] of rowBands) {
+        const bandH = rowEnd - rowStart;
+
+        // 各列の非背景ピクセル比率（この行帯の中だけで計算）
+        const colProfile: number[] = [];
+        for (let x = 0; x < width; x++) {
+            let count = 0;
+            for (let y = rowStart; y < rowEnd; y++) {
+                const i = (y * width + x) * 4;
+                if (!isBackground(data[i], data[i + 1], data[i + 2])) count++;
+            }
+            colProfile.push(count / bandH);
+        }
+
+        const colBands = splitProfile(colProfile, gapThreshold);
+
+        for (const [colStart, colEnd] of colBands) {
+            // セル内のコンテンツ輪郭ボックスを取得
+            const bbox = getContentBBox(data, width, rowStart, rowEnd, colStart, colEnd, isBackground);
+            cells.push({
+                x: colStart, y: rowStart, w: colEnd - colStart, h: bandH,
+                cx: bbox.x, cy: bbox.y, cw: bbox.w, ch: bbox.h,
+            });
+        }
+    }
+
+    return cells;
+}
+
+/** プロファイル配列から「コンテンツのある帯」の [start, end] リストを返す */
+function splitProfile(profile: number[], threshold: number): [number, number][] {
+    const bands: [number, number][] = [];
+    let inBand = false;
+    let start = 0;
+
+    for (let i = 0; i < profile.length; i++) {
+        if (!inBand && profile[i] > threshold) {
+            inBand = true;
+            start = i;
+        } else if (inBand && profile[i] <= threshold) {
+            inBand = false;
+            if (i - start > 5) bands.push([start, i]); // 5px以下の帯は無視
+        }
+    }
+    if (inBand && profile.length - start > 5) bands.push([start, profile.length]);
+    return bands;
+}
+
+/** セル内のコンテンツ（非背景ピクセル）の輪郭ボックスを返す */
+function getContentBBox(
+    data: Uint8ClampedArray,
+    width: number,
+    rowStart: number, rowEnd: number,
+    colStart: number, colEnd: number,
+    isBackground: (r: number, g: number, b: number) => boolean
+): { x: number; y: number; w: number; h: number } {
+    let minX = colEnd, maxX = colStart, minY = rowEnd, maxY = rowStart;
+    for (let y = rowStart; y < rowEnd; y++) {
+        for (let x = colStart; x < colEnd; x++) {
+            const i = (y * width + x) * 4;
+            if (!isBackground(data[i], data[i + 1], data[i + 2])) {
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+            }
+        }
+    }
+    if (minX > maxX || minY > maxY) return { x: colStart, y: rowStart, w: colEnd - colStart, h: rowEnd - rowStart };
+    return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+}
+
+/** 検出されたセルを 370×320px 中央配置で書き出す */
+function cropCellCentered(
+    source: HTMLImageElement,
+    cell: DetectedCell
+): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = MAX_W;
+        canvas.height = MAX_H;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { reject(new Error('no ctx')); return; }
+
+        // コンテンツを MAX_W×MAX_H に収まるようスケール（余白10px）
+        const margin = 10;
+        const scale = Math.min((MAX_W - margin * 2) / cell.cw, (MAX_H - margin * 2) / cell.ch);
+        const dw = cell.cw * scale;
+        const dh = cell.ch * scale;
+        const dx = (MAX_W - dw) / 2;
+        const dy = (MAX_H - dh) / 2;
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(source, cell.cx, cell.cy, cell.cw, cell.ch, dx, dy, dw, dh);
+
+        canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/png');
+    });
+}
+
+export async function processImageAuto(
+    file: File,
+    bgThreshold = 30,
+    gapThreshold = 0.01
+): Promise<{ slices: SliceResult[]; zipBlob: Blob; cells: DetectedCell[] }> {
+    const img = await loadImage(file);
+
+    // imageData 取得用の一時 canvas
+    const tmpCanvas = document.createElement('canvas');
+    tmpCanvas.width = img.naturalWidth;
+    tmpCanvas.height = img.naturalHeight;
+    const tmpCtx = tmpCanvas.getContext('2d')!;
+    tmpCtx.drawImage(img, 0, 0);
+    const imageData = tmpCtx.getImageData(0, 0, img.naturalWidth, img.naturalHeight);
+
+    const cells = detectCells(imageData, bgThreshold, gapThreshold);
+
+    const zip = new JSZip();
+    const slices: SliceResult[] = [];
+
+    for (let i = 0; i < cells.length; i++) {
+        const blob = await cropCellCentered(img, cells[i]);
+        const name = `${String(i + 1).padStart(2, '0')}.png`;
+        const url = URL.createObjectURL(blob);
+        slices.push({ id: i + 1, blob, url, name });
+        zip.file(name, blob);
+    }
+
+    // main.png / tab.png は1枚目から
+    if (cells.length > 0) {
+        const mainBlob = await cropCellCentered(img, cells[0]);
+        zip.file('main.png', mainBlob);
+        const tabBlob = await cropAndResize(img, cells[0].cx, cells[0].cy, cells[0].cw, cells[0].ch, 96, 74, 'pad');
+        zip.file('tab.png', tabBlob);
+    }
+
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    return { slices, zipBlob, cells };
+}
 
 export async function processImage(
     file: File,
