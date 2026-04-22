@@ -194,7 +194,7 @@ export async function processImageAuto(
 
     // main.png / tab.png は1枚目から
     if (cells.length > 0) {
-        const mainBlob = await cropCellCentered(img, cells[0]);
+        const mainBlob = await cropAndResize(img, cells[0].cx, cells[0].cy, cells[0].cw, cells[0].ch, 240, 240, 'pad');
         zip.file('main.png', mainBlob);
         const tabBlob = await cropAndResize(img, cells[0].cx, cells[0].cy, cells[0].cw, cells[0].ch, 96, 74, 'pad');
         zip.file('tab.png', tabBlob);
