@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Upload, Download, Loader2, Image as ImageIcon, Wand2 } from 'lucide-react';
+import { Upload, Download, Loader2, Image as ImageIcon, Wand2, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { processImage, SliceResult, Padding } from '@/lib/slicer';
 import { cn } from '@/lib/utils';
@@ -17,11 +17,23 @@ export function SlicerApp() {
     const [removeBg, setRemoveBg] = useState(false);
     const [padding, setPadding] = useState<Padding>({ top: 0, bottom: 0, left: 0, right: 0 });
     const [bgColor, setBgColor] = useState<string>('transparent');
+    const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
     const imgRef = useRef<HTMLImageElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
-    // グリッド線をcanvasに描画（パラメータ変更のたびに実行）
+    // キーボード操作（ライトボックス）
+    useEffect(() => {
+        if (lightboxIndex === null) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setLightboxIndex(null);
+            if (e.key === 'ArrowRight') setLightboxIndex(i => i !== null ? Math.min(i + 1, slices.length - 1) : null);
+            if (e.key === 'ArrowLeft')  setLightboxIndex(i => i !== null ? Math.max(i - 1, 0) : null);
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [lightboxIndex, slices.length]);
+
     const drawGrid = useCallback(() => {
         const canvas = canvasRef.current;
         const img = imgRef.current;
@@ -43,7 +55,6 @@ export function SlicerApp() {
         const natW = img.naturalWidth;
         const natH = img.naturalHeight;
 
-        // 自然サイズ→表示サイズのスケール
         const scaleX = dispW / natW;
         const scaleY = dispH / natH;
 
@@ -57,33 +68,24 @@ export function SlicerApp() {
         const cellW = activeW / c;
         const cellH = activeH / r;
 
-        // 余白エリアを半透明赤でハイライト
         ctx.fillStyle = 'rgba(239, 68, 68, 0.25)';
         if (padT > 0) ctx.fillRect(0, 0, dispW, padT);
         if (padB > 0) ctx.fillRect(0, dispH - padB, dispW, padB);
         if (padL > 0) ctx.fillRect(0, padT, padL, activeH);
         if (padR > 0) ctx.fillRect(dispW - padR, padT, padR, activeH);
 
-        // グリッド線（緑）
         ctx.strokeStyle = 'rgba(34, 197, 94, 0.85)';
         ctx.lineWidth = 1.5;
 
         for (let i = 0; i <= c; i++) {
             const x = padL + i * cellW;
-            ctx.beginPath();
-            ctx.moveTo(x, padT);
-            ctx.lineTo(x, padT + activeH);
-            ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + activeH); ctx.stroke();
         }
         for (let i = 0; i <= r; i++) {
             const y = padT + i * cellH;
-            ctx.beginPath();
-            ctx.moveTo(padL, y);
-            ctx.lineTo(padL + activeW, y);
-            ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + activeW, y); ctx.stroke();
         }
 
-        // セル番号
         ctx.fillStyle = 'rgba(34, 197, 94, 0.9)';
         ctx.font = `${Math.max(10, Math.min(cellW, cellH) * 0.25)}px monospace`;
         ctx.textAlign = 'center';
@@ -91,17 +93,13 @@ export function SlicerApp() {
         let num = 1;
         for (let ri = 0; ri < r; ri++) {
             for (let ci = 0; ci < c; ci++) {
-                const cx = padL + ci * cellW + cellW / 2;
-                const cy = padT + ri * cellH + cellH / 2;
-                ctx.fillText(String(num), cx, cy);
+                ctx.fillText(String(num), padL + ci * cellW + cellW / 2, padT + ri * cellH + cellH / 2);
                 num++;
             }
         }
     }, [rows, cols, padding, previewOriginal]);
 
-    useEffect(() => {
-        drawGrid();
-    }, [drawGrid]);
+    useEffect(() => { drawGrid(); }, [drawGrid]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -143,6 +141,9 @@ export function SlicerApp() {
         setPadding(prev => ({ ...prev, [key]: value === '' ? 0 : Number(value) }));
     };
 
+    const checkerBg = 'repeating-conic-gradient(#3f3f46 0% 25%, #27272a 0% 50%) 0 0 / 16px 16px';
+    const previewBg = bgColor === 'transparent' ? checkerBg : bgColor;
+
     return (
         <div className="w-full max-w-5xl mx-auto p-6 space-y-8">
             {/* Header */}
@@ -150,25 +151,17 @@ export function SlicerApp() {
                 <h1 className="text-4xl font-bold bg-gradient-to-r from-green-500 to-emerald-700 bg-clip-text text-transparent">
                     スタンプスライサー
                 </h1>
-                <p className="text-gray-400">
-                    プライベート、高速、クライアントサイドでLINEスタンプ生成。
-                </p>
+                <p className="text-gray-400">プライベート、高速、クライアントサイドでLINEスタンプ生成。</p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-8">
                 {/* Controls */}
                 <div className="space-y-5 bg-zinc-900 p-6 rounded-2xl border border-zinc-800">
-
-                    {/* アップロード */}
                     <div className="space-y-2">
                         <label className="block text-sm font-medium text-gray-300">1. 画像をアップロード</label>
                         <div className="relative group">
-                            <input
-                                type="file"
-                                accept="image/*"
-                                onChange={handleFileChange}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                            />
+                            <input type="file" accept="image/*" onChange={handleFileChange}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
                             <div className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-zinc-700 rounded-xl bg-zinc-900/50 group-hover:border-green-500/50 transition-colors">
                                 <Upload className="w-6 h-6 text-gray-500 mb-1 group-hover:text-green-500" />
                                 <span className="text-sm text-gray-500 group-hover:text-gray-300">
@@ -178,26 +171,23 @@ export function SlicerApp() {
                         </div>
                     </div>
 
-                    {/* 行列 */}
                     <div className="space-y-2">
                         <label className="block text-sm font-medium text-gray-300">2. グリッド設定</label>
                         <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                                <label className="text-xs text-gray-400">行数</label>
-                                <input type="number" min="1" max="20" value={rows}
-                                    onChange={e => setRows(e.target.value === '' ? '' : Number(e.target.value))}
-                                    className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-white" />
-                            </div>
-                            <div className="space-y-1">
-                                <label className="text-xs text-gray-400">列数</label>
-                                <input type="number" min="1" max="20" value={cols}
-                                    onChange={e => setCols(e.target.value === '' ? '' : Number(e.target.value))}
-                                    className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-white" />
-                            </div>
+                            {(['行数', '列数'] as const).map((label, i) => (
+                                <div key={label} className="space-y-1">
+                                    <label className="text-xs text-gray-400">{label}</label>
+                                    <input type="number" min="1" max="20"
+                                        value={i === 0 ? rows : cols}
+                                        onChange={e => i === 0
+                                            ? setRows(e.target.value === '' ? '' : Number(e.target.value))
+                                            : setCols(e.target.value === '' ? '' : Number(e.target.value))}
+                                        className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-white" />
+                                </div>
+                            ))}
                         </div>
                     </div>
 
-                    {/* パディング */}
                     <div className="space-y-2">
                         <label className="block text-sm font-medium text-gray-300">
                             3. 余白（px）
@@ -218,43 +208,28 @@ export function SlicerApp() {
                         <p className="text-xs text-gray-500">赤＝余白エリア　緑＝切り出しライン</p>
                     </div>
 
-                    {/* AI背景削除 */}
                     <div className="flex items-center justify-between py-1">
                         <label className="text-sm font-medium text-gray-300 flex items-center gap-2">
                             <Wand2 className="w-4 h-4 text-purple-400" />
                             AI背景削除
                             <span className="text-xs text-gray-500 font-normal">（初回約20MBダウンロード）</span>
                         </label>
-                        <button
-                            onClick={() => setRemoveBg(!removeBg)}
-                            className={cn('w-12 h-6 rounded-full transition-colors relative', removeBg ? 'bg-purple-600' : 'bg-zinc-700')}
-                        >
+                        <button onClick={() => setRemoveBg(!removeBg)}
+                            className={cn('w-12 h-6 rounded-full transition-colors relative', removeBg ? 'bg-purple-600' : 'bg-zinc-700')}>
                             <span className={cn('absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform', removeBg ? 'translate-x-6' : 'translate-x-0')} />
                         </button>
                     </div>
 
-                    {/* 分割ボタン */}
-                    <button
-                        onClick={handleSlice}
-                        disabled={!file || isProcessing}
-                        className={cn(
-                            'w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all',
-                            !file
-                                ? 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
-                                : 'bg-green-600 hover:bg-green-500 text-white shadow-lg shadow-green-900/20 active:scale-95'
-                        )}
-                    >
-                        {isProcessing
-                            ? <><Loader2 className="animate-spin" /> 処理中...</>
-                            : <><ImageIcon className="w-5 h-5" /> 画像を分割</>
-                        }
+                    <button onClick={handleSlice} disabled={!file || isProcessing}
+                        className={cn('w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all',
+                            !file ? 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
+                                  : 'bg-green-600 hover:bg-green-500 text-white shadow-lg shadow-green-900/20 active:scale-95')}>
+                        {isProcessing ? <><Loader2 className="animate-spin" /> 処理中...</> : <><ImageIcon className="w-5 h-5" /> 画像を分割</>}
                     </button>
 
                     {zipBlob && (
-                        <button
-                            onClick={handleDownload}
-                            className="w-full py-3 bg-white text-zinc-900 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-100 transition-all shadow-lg"
-                        >
+                        <button onClick={handleDownload}
+                            className="w-full py-3 bg-white text-zinc-900 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-100 transition-all shadow-lg">
                             <Download className="w-5 h-5" /> ZIPをダウンロード
                         </button>
                     )}
@@ -265,8 +240,8 @@ export function SlicerApp() {
                     <div className="flex items-center justify-between mb-4">
                         <label className="text-sm font-medium text-gray-300">
                             {slices.length > 0 ? `プレビュー（${slices.length}枚）` : 'グリッドプレビュー'}
+                            {slices.length > 0 && <span className="ml-2 text-xs text-gray-500 font-normal">クリックで拡大</span>}
                         </label>
-                        {/* 背景色セレクター */}
                         <div className="flex items-center gap-1.5">
                             <span className="text-xs text-gray-500">背景</span>
                             {[
@@ -275,49 +250,36 @@ export function SlicerApp() {
                                 { value: '#888888', label: '灰', style: 'bg-gray-500' },
                                 { value: '#000000', label: '黒', style: 'bg-black' },
                             ].map(opt => (
-                                <button
-                                    key={opt.value}
-                                    title={opt.label}
-                                    onClick={() => setBgColor(opt.value)}
-                                    className={cn(
-                                        'w-6 h-6 rounded border-2 transition-all',
-                                        opt.style,
-                                        bgColor === opt.value ? 'border-green-400 scale-110' : 'border-zinc-600'
-                                    )}
-                                />
+                                <button key={opt.value} title={opt.label} onClick={() => setBgColor(opt.value)}
+                                    className={cn('w-6 h-6 rounded border-2 transition-all', opt.style,
+                                        bgColor === opt.value ? 'border-green-400 scale-110' : 'border-zinc-600')} />
                             ))}
                         </div>
                     </div>
 
                     <div className="flex-1 flex items-center justify-center rounded-xl p-4 overflow-hidden"
-                        style={{ background: bgColor === 'transparent' ? 'repeating-conic-gradient(#3f3f46 0% 25%, #27272a 0% 50%) 0 0 / 16px 16px' : bgColor }}
-                    >
+                        style={{ background: previewBg }}>
                         {slices.length > 0 ? (
                             <div className="grid gap-1 w-full" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
-                                {slices.map((slice) => (
-                                    <div key={slice.id} className="aspect-[370/320] relative bg-zinc-800 rounded-sm overflow-hidden group">
+                                {slices.map((slice, idx) => (
+                                    <button key={slice.id}
+                                        onClick={() => setLightboxIndex(idx)}
+                                        className="aspect-[370/320] relative rounded-sm overflow-hidden group cursor-zoom-in focus:outline-none focus:ring-2 focus:ring-green-400">
                                         <img src={slice.url} alt={slice.name} className="w-full h-full object-contain" />
-                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-xs text-white pointer-events-none transition-opacity">
-                                            {slice.name}
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                            <span className="text-white text-xs font-bold drop-shadow">{slice.name}</span>
                                         </div>
-                                    </div>
+                                    </button>
                                 ))}
                             </div>
                         ) : previewOriginal ? (
                             <div className="relative w-full h-full flex items-center justify-center">
                                 <div className="relative inline-block">
-                                    <img
-                                        ref={imgRef}
-                                        src={previewOriginal}
-                                        alt="Original"
+                                    <img ref={imgRef} src={previewOriginal} alt="Original"
                                         className="max-w-full max-h-[380px] object-contain block"
-                                        onLoad={drawGrid}
-                                    />
-                                    <canvas
-                                        ref={canvasRef}
-                                        className="absolute inset-0 pointer-events-none"
-                                        style={{ width: '100%', height: '100%' }}
-                                    />
+                                        onLoad={drawGrid} />
+                                    <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none"
+                                        style={{ width: '100%', height: '100%' }} />
                                 </div>
                             </div>
                         ) : (
@@ -330,16 +292,59 @@ export function SlicerApp() {
 
                     {slices.length > 0 && (
                         <div className="mt-3">
-                            <button
-                                onClick={() => { setSlices([]); setZipBlob(null); }}
-                                className="w-full py-2 text-sm bg-zinc-800 hover:bg-zinc-700 text-gray-300 rounded-lg transition-colors"
-                            >
+                            <button onClick={() => { setSlices([]); setZipBlob(null); }}
+                                className="w-full py-2 text-sm bg-zinc-800 hover:bg-zinc-700 text-gray-300 rounded-lg transition-colors">
                                 ← グリッドに戻る
                             </button>
                         </div>
                     )}
                 </div>
             </div>
+
+            {/* ライトボックス */}
+            {lightboxIndex !== null && slices[lightboxIndex] && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center"
+                    onClick={() => setLightboxIndex(null)}>
+                    {/* 背景オーバーレイ */}
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+
+                    {/* 画像 */}
+                    <div className="relative z-10 flex flex-col items-center gap-4"
+                        onClick={e => e.stopPropagation()}>
+                        <div className="rounded-2xl overflow-hidden shadow-2xl"
+                            style={{ background: previewBg, width: 370, height: 320 }}>
+                            <img src={slices[lightboxIndex].url}
+                                alt={slices[lightboxIndex].name}
+                                className="w-full h-full object-contain" />
+                        </div>
+                        <span className="text-white/70 text-sm">
+                            {slices[lightboxIndex].name}　{lightboxIndex + 1} / {slices.length}
+                        </span>
+                    </div>
+
+                    {/* 前へ */}
+                    <button
+                        onClick={e => { e.stopPropagation(); setLightboxIndex(i => i !== null ? Math.max(i - 1, 0) : null); }}
+                        disabled={lightboxIndex === 0}
+                        className="absolute left-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-20 transition-all">
+                        <ChevronLeft className="w-8 h-8 text-white" />
+                    </button>
+
+                    {/* 次へ */}
+                    <button
+                        onClick={e => { e.stopPropagation(); setLightboxIndex(i => i !== null ? Math.min(i + 1, slices.length - 1) : null); }}
+                        disabled={lightboxIndex === slices.length - 1}
+                        className="absolute right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-20 transition-all">
+                        <ChevronRight className="w-8 h-8 text-white" />
+                    </button>
+
+                    {/* 閉じる */}
+                    <button onClick={() => setLightboxIndex(null)}
+                        className="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all">
+                        <X className="w-6 h-6 text-white" />
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
