@@ -116,7 +116,6 @@ export function SlicerApp() {
             setPreviewOriginal(URL.createObjectURL(selectedFile));
             setSlices([]);
             setZipBlob(null);
-            setRemoveBg(false);
         }
     };
 
